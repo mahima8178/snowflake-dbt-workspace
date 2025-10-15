@@ -1,0 +1,37 @@
+name: 'snowflake_native_dbt'
+version: '1.0.0'
+config-version: 2
+
+profile: 'snowflake_native_dbt' # This is managed by the Workspace
+
+# Use variables to avoid hardcoding database names
+vars:
+  raw_database: RAW_DB
+  prod_database: PROD_DB
+
+# Define where your dbt assets are located
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+# Configure the seeds to load into the RAW_DB
+seeds:
+  +database: "{{ var('raw_database') }}"
+  +schema: raw_data
+
+# Define materialization and permission strategies for each layer
+models:
+  snowflake_native_dbt:
+    staging:
+      +database: "{{ var('prod_database') }}"
+      +schema: staging
+      +materialized: view
+    marts:
+      +database: "{{ var('prod_database') }}"
+      +schema: marts
+      +materialized: table
+      # This post-hook automatically grants read access to analysts after every run
+      +post-hook:
+        - "GRANT USAGE ON SCHEMA {{ this.database }}.{{ this.schema }} TO ROLE ANALYST_ROLE"
+        - "GRANT SELECT ON TABLE {{ this }} TO ROLE ANALYST_ROLE"
